@@ -196,6 +196,9 @@ public class RecentController implements RecentPanelView.OnExitListener,
     private boolean mWaitingClearAllConfirmation;
     private ObjectAnimator mClearAllAnimation;
 
+    // While slim recents doesn't support split screen, we may want to fallback to the other recents impl from time to time
+    private RecentsImplementation mFallbackRecents;
+
     private BroadcastReceiver mBroadcastReceiver = new BroadcastReceiver() {
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
@@ -213,7 +216,8 @@ public class RecentController implements RecentPanelView.OnExitListener,
         }
     };
 
-    public RecentController() {
+    public RecentController(RecentsImplementation fallbackRecents) {
+        mFallbackRecents = fallbackRecents;
     }
 
     public void onStart(Context context) {
@@ -513,8 +517,15 @@ public class RecentController implements RecentPanelView.OnExitListener,
         }
     }
 
+    public void launchFallbackRecents() {
+        // TODO toast
+        mFallbackRecents.showRecentApps(false);
+        closeRecents();
+    }
+
     public boolean splitPrimaryTask(int stackCreateMode, Rect initialBounds,
                                     int metricsDockAction) {
+        launchFallbackRecents();
         /* TODO
         SystemServicesProxy ssp = SystemServicesProxy.getInstance(mContext);
         ActivityManager.RunningTaskInfo runningTask =
@@ -549,13 +560,14 @@ public class RecentController implements RecentPanelView.OnExitListener,
     }
 
     protected void startTaskinMultiWindow(int id) {
-        /* TODO
-        final ActivityOptions options =
-                ActivityOptionsCompat.makeSplitScreenOptions(true*//*dockTopLeft*//*);
+        launchFallbackRecents();
+        /*
+        final ActivityOptions options = ActivityOptions.makeBasic();
+                // TODO ActivityOptionsCompat.makeSplitScreenOptions(true/*dockTopLeft*//*);
         if (ActivityManagerWrapper.getInstance().startActivityFromRecents(id, options)) {
             openLastApptoBottom();
         }
-       */
+        */
    }
 
     private void openLastApptoBottom() {
@@ -788,13 +800,6 @@ public class RecentController implements RecentPanelView.OnExitListener,
         int vis = 0;
         boolean layoutBehindNavigation = true;
         int newVis = View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
-        if ((vis & View.STATUS_BAR_TRANSLUCENT) != 0) {
-            newVis |= View.STATUS_BAR_TRANSLUCENT
-                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN;
-        }
-        if ((vis & View.NAVIGATION_BAR_TRANSLUCENT) != 0) {
-            newVis |= View.NAVIGATION_BAR_TRANSLUCENT;
-        }
         if ((vis & View.SYSTEM_UI_FLAG_HIDE_NAVIGATION) != 0) {
             newVis |= View.SYSTEM_UI_FLAG_HIDE_NAVIGATION;
             layoutBehindNavigation = false;
@@ -863,6 +868,7 @@ public class RecentController implements RecentPanelView.OnExitListener,
         if (!mIsUserSetup) {
             return false;
         }
+        mFallbackRecents.hideRecentApps(false, false);
         if (isShowing()) {
             mIsPreloaded = false;
             mIsToggled = false;
@@ -890,6 +896,7 @@ public class RecentController implements RecentPanelView.OnExitListener,
 
     // Show the recent window.
     private void showRecents() {
+        mFallbackRecents.hideRecentApps(false, false);
         mIsShowing = true;
         cancelClearAllWaiting();
         sendCloseSystemWindows(SYSTEM_DIALOG_REASON_RECENT_APPS);
